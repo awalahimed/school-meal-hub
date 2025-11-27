@@ -1,1 +1,4 @@
 project_id = "qxiadvdbmrcetghtqywa"
+
+[functions.receive-email]
+verify_jwt = false
