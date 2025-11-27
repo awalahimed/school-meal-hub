@@ -26,12 +26,14 @@ const signupSchema = loginSchema.extend({
 
 const Auth = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, role, loading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
 
   // Redirect if already logged in
-  if (user) {
-    navigate("/");
+  if (user && role && !loading) {
+    if (role === "admin") navigate("/admin");
+    else if (role === "staff") navigate("/staff");
+    else if (role === "student") navigate("/student");
     return null;
   }
 
@@ -58,7 +60,7 @@ const Auth = () => {
       }
 
       toast.success("Logged in successfully!");
-      navigate("/");
+      // Navigation will happen automatically via useAuth redirect
     } catch (error) {
       if (error instanceof z.ZodError) {
         toast.error(error.errors[0].message);
