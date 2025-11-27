@@ -57,63 +57,41 @@ export const StaffManagement = () => {
 
       staffSchema.parse({ full_name: fullName, position, email, password });
 
-      // Create auth user
-      const redirectUrl = `${window.location.origin}/auth`;
+      // Use edge function to create staff without affecting admin session
+      const { data: { session } } = await supabase.auth.getSession();
       
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: redirectUrl,
-          data: { full_name: fullName },
-        },
-      });
-
-      if (authError) throw authError;
-      if (!authData.user) throw new Error("Failed to create user");
-
-      const userId = authData.user.id;
-
-      try {
-        // Generate unique staff ID
-        const { data: staffId, error: idError } = await supabase.rpc("generate_staff_id");
-        if (idError) throw idError;
-
-        // Create staff record
-        const { error: staffError } = await supabase.from("staff").insert({
-          staff_id: staffId,
-          full_name: fullName,
-          position,
-          user_id: userId,
-        });
-
-        if (staffError) {
-          console.error("Staff record creation failed:", staffError);
-          throw new Error(`Failed to create staff record: ${staffError.message}`);
-        }
-
-        // Assign staff role using security definer function - CRITICAL: This must succeed
-        const { error: roleError } = await supabase.rpc("create_staff_role", {
-          _user_id: userId,
-        });
-
-        if (roleError) {
-          console.error("Role assignment failed:", roleError);
-          // Try to clean up staff record if role assignment fails
-          await supabase.from("staff").delete().eq("user_id", userId);
-          throw new Error(`Failed to assign staff role: ${roleError.message}`);
-        }
-
-        console.log("Staff member created successfully with staff role assigned");
-      } catch (error) {
-        // If anything fails after user creation, we should inform about cleanup
-        console.error("Staff creation failed:", error);
-        throw error;
+      if (!session) {
+        throw new Error("Not authenticated");
       }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-staff-user`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            email,
+            password,
+            fullName,
+            position,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to create staff member");
+      }
+
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["staff"] });
-      toast.success("Staff member created successfully with staff role assigned");
+      toast.success("Staff member created successfully. They can now log in with their credentials.");
       setIsOpen(false);
     },
     onError: (error: any) => {
