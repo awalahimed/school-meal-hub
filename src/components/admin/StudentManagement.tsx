@@ -21,14 +21,25 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Filter } from "lucide-react";
 import { z } from "zod";
 
 const studentSchema = z.object({
@@ -41,6 +52,9 @@ const studentSchema = z.object({
 export const StudentManagement = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<any>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const queryClient = useQueryClient();
 
   const { data: students, isLoading } = useQuery({
@@ -155,15 +169,27 @@ export const StudentManagement = () => {
     setEditingStudent(null);
   };
 
+  const filteredStudents = students?.filter((student) => {
+    const matchesSearch =
+      student.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      student.student_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      student.grade.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesStatus = statusFilter === "all" || student.status === statusFilter;
+    
+    return matchesSearch && matchesStatus;
+  });
+
   return (
     <div className="space-y-4">
-      <Dialog open={isOpen} onOpenChange={handleClose}>
-        <DialogTrigger asChild>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Student
-          </Button>
-        </DialogTrigger>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <Dialog open={isOpen} onOpenChange={handleClose}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Student
+            </Button>
+          </DialogTrigger>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingStudent ? "Edit Student" : "Add New Student"}</DialogTitle>
@@ -218,8 +244,69 @@ export const StudentManagement = () => {
         </DialogContent>
       </Dialog>
 
+        <div className="flex flex-1 gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search by name, ID, or grade..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[180px]">
+              <Filter className="mr-2 h-4 w-4" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="suspended">Suspended</SelectItem>
+              <SelectItem value="under_standard">Under Standard</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this student record. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteId) {
+                  deleteStudent.mutate(deleteId);
+                  setDeleteId(null);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {isLoading ? (
-        <p>Loading...</p>
+        <div className="flex h-64 items-center justify-center">
+          <p className="text-muted-foreground">Loading students...</p>
+        </div>
+      ) : !filteredStudents || filteredStudents.length === 0 ? (
+        <div className="flex h-64 flex-col items-center justify-center gap-2 rounded-lg border border-dashed">
+          <p className="text-lg font-medium">No students found</p>
+          <p className="text-sm text-muted-foreground">
+            {searchQuery || statusFilter !== "all"
+              ? "Try adjusting your search or filters"
+              : "Get started by adding your first student"}
+          </p>
+        </div>
       ) : (
         <Table>
           <TableHeader>
@@ -233,24 +320,24 @@ export const StudentManagement = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {students?.map((student) => (
+            {filteredStudents?.map((student) => (
               <TableRow key={student.id}>
                 <TableCell className="font-mono">{student.student_id}</TableCell>
                 <TableCell>{student.full_name}</TableCell>
                 <TableCell>{student.grade}</TableCell>
                 <TableCell>{student.sex}</TableCell>
                 <TableCell>
-                  <span
-                    className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                  <Badge
+                    variant={
                       student.status === "active"
-                        ? "bg-success/10 text-success"
+                        ? "default"
                         : student.status === "suspended"
-                        ? "bg-destructive/10 text-destructive"
-                        : "bg-warning/10 text-warning"
-                    }`}
+                        ? "destructive"
+                        : "secondary"
+                    }
                   >
                     {student.status}
-                  </span>
+                  </Badge>
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-2">
@@ -260,9 +347,9 @@ export const StudentManagement = () => {
                     <Button
                       variant="outline"
                       size="icon"
-                      onClick={() => deleteStudent.mutate(student.id)}
+                      onClick={() => setDeleteId(student.id)}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
                 </TableCell>
