@@ -24,11 +24,11 @@ const StudentDashboard = () => {
     <ProtectedRoute allowedRoles={["student"]}>
       <div className="min-h-screen bg-background">
         {/* Header */}
-        <header className="border-b bg-card">
-          <div className="container mx-auto flex items-center justify-between px-4 py-4">
+        <header className="border-b bg-gradient-to-r from-primary/10 via-secondary/10 to-accent/30">
+          <div className="container mx-auto flex items-center justify-between px-4 py-6">
             <div>
-              <h1 className="text-2xl font-bold">Student Dashboard</h1>
-              <p className="text-sm text-muted-foreground">{user?.email}</p>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Student Dashboard</h1>
+              <p className="text-sm text-muted-foreground mt-1">{user?.email}</p>
             </div>
             <Button variant="outline" onClick={handleSignOut}>
               <LogOut className="mr-2 h-4 w-4" />
