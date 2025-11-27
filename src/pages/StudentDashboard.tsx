@@ -6,6 +6,7 @@ import { signOut } from "@/lib/auth";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { LogOut, Home, UtensilsCrossed, History, User } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { StudentHome } from "@/components/student/StudentHome";
 import { StudentMenuView } from "@/components/student/StudentMenuView";
 import { StudentHistoryView } from "@/components/student/StudentHistoryView";
@@ -43,9 +44,12 @@ const StudentDashboard = () => {
               </h1>
               <p className="text-xs text-muted-foreground mt-0.5">{user?.email}</p>
             </div>
-            <Button variant="ghost" size="icon" onClick={handleSignOut} className="rounded-full">
-              <LogOut className="h-5 w-5" />
-            </Button>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <Button variant="ghost" size="icon" onClick={handleSignOut} className="rounded-full">
+                <LogOut className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
         </header>
 
