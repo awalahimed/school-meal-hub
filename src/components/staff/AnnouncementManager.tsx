@@ -15,7 +15,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Edit2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { z } from "zod";
@@ -27,6 +27,7 @@ const announcementSchema = z.object({
 
 export const AnnouncementManager = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [editingAnnouncement, setEditingAnnouncement] = useState<any>(null);
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -70,6 +71,30 @@ export const AnnouncementManager = () => {
     },
   });
 
+  const updateAnnouncement = useMutation({
+    mutationFn: async ({ id, formData }: { id: string; formData: FormData }) => {
+      const title = formData.get("title") as string;
+      const content = formData.get("content") as string;
+
+      announcementSchema.parse({ title, content });
+
+      const { error } = await supabase
+        .from("announcements")
+        .update({ title, content })
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["staff-announcements"] });
+      toast.success("Announcement updated successfully");
+      setEditingAnnouncement(null);
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to update announcement");
+    },
+  });
+
   const deleteAnnouncement = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("announcements").delete().eq("id", id);
@@ -88,6 +113,12 @@ export const AnnouncementManager = () => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     createAnnouncement.mutate(formData);
+  };
+
+  const handleEditSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    updateAnnouncement.mutate({ id: editingAnnouncement.id, formData });
   };
 
   return (
@@ -139,19 +170,63 @@ export const AnnouncementManager = () => {
                   </p>
                 </div>
                 {announcement.posted_by === user?.id && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => deleteAnnouncement.mutate(announcement.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setEditingAnnouncement(announcement)}
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => deleteAnnouncement.mutate(announcement.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 )}
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      <Dialog open={!!editingAnnouncement} onOpenChange={() => setEditingAnnouncement(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Announcement</DialogTitle>
+            <DialogDescription>Update your announcement</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-title">Title</Label>
+              <Input
+                id="edit-title"
+                name="title"
+                defaultValue={editingAnnouncement?.title}
+                placeholder="Announcement title"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-content">Content</Label>
+              <Textarea
+                id="edit-content"
+                name="content"
+                defaultValue={editingAnnouncement?.content}
+                placeholder="Announcement content"
+                rows={4}
+                required
+              />
+            </div>
+            <Button type="submit" className="w-full">
+              Update Announcement
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
