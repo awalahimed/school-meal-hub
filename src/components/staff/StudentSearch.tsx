@@ -103,6 +103,46 @@ export const StudentSearch = ({ externalSearchQuery, onSearchQueryChange }: Stud
     enabled: !!selectedStudent,
   });
 
+  const { data: mealSchedules } = useQuery({
+    queryKey: ["meal-schedules"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("meal_schedules")
+        .select("*")
+        .eq("is_active", true);
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const isMealTimeOpen = (mealType: "breakfast" | "lunch" | "dinner") => {
+    if (!mealSchedules) return false;
+
+    const schedule = mealSchedules.find(s => s.meal_type === mealType);
+    if (!schedule) return false;
+
+    const now = new Date();
+    const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
+
+    const startTime = schedule.start_time.slice(0, 5);
+    const endTime = schedule.end_time.slice(0, 5);
+
+    return currentTime >= startTime && currentTime <= endTime;
+  };
+
+  const getMealTimeRange = (mealType: "breakfast" | "lunch" | "dinner") => {
+    if (!mealSchedules) return "";
+
+    const schedule = mealSchedules.find(s => s.meal_type === mealType);
+    if (!schedule) return "";
+
+    const startTime = schedule.start_time.slice(0, 5);
+    const endTime = schedule.end_time.slice(0, 5);
+
+    return `${startTime} - ${endTime}`;
+  };
+
   const recordMeal = useMutation({
     mutationFn: async (mealType: "breakfast" | "lunch" | "dinner") => {
       if (!selectedStudent || !user) return;
@@ -300,42 +340,69 @@ export const StudentSearch = ({ externalSearchQuery, onSearchQueryChange }: Stud
                   <div className="grid gap-3 md:grid-cols-3">
                     <Button
                       onClick={() => recordMeal.mutate("breakfast")}
-                      disabled={hasMeal("breakfast")}
+                      disabled={hasMeal("breakfast") || !isMealTimeOpen("breakfast")}
                       variant={hasMeal("breakfast") ? "outline" : "default"}
                       size="lg"
-                      className="h-20 flex-col gap-2"
+                      className="h-24 flex-col gap-1"
                     >
                       {hasMeal("breakfast") && <Check className="h-5 w-5" />}
                       <span className="text-base font-semibold">Breakfast</span>
                       <span className="text-xs opacity-80">
-                        {hasMeal("breakfast") ? "Recorded" : "Not recorded"}
+                        {hasMeal("breakfast") 
+                          ? "Recorded" 
+                          : isMealTimeOpen("breakfast") 
+                          ? "Available Now" 
+                          : `Closed`}
                       </span>
+                      {!isMealTimeOpen("breakfast") && !hasMeal("breakfast") && (
+                        <span className="text-xs opacity-60">
+                          {getMealTimeRange("breakfast")}
+                        </span>
+                      )}
                     </Button>
                     <Button
                       onClick={() => recordMeal.mutate("lunch")}
-                      disabled={hasMeal("lunch")}
+                      disabled={hasMeal("lunch") || !isMealTimeOpen("lunch")}
                       variant={hasMeal("lunch") ? "outline" : "default"}
                       size="lg"
-                      className="h-20 flex-col gap-2"
+                      className="h-24 flex-col gap-1"
                     >
                       {hasMeal("lunch") && <Check className="h-5 w-5" />}
                       <span className="text-base font-semibold">Lunch</span>
                       <span className="text-xs opacity-80">
-                        {hasMeal("lunch") ? "Recorded" : "Not recorded"}
+                        {hasMeal("lunch") 
+                          ? "Recorded" 
+                          : isMealTimeOpen("lunch") 
+                          ? "Available Now" 
+                          : `Closed`}
                       </span>
+                      {!isMealTimeOpen("lunch") && !hasMeal("lunch") && (
+                        <span className="text-xs opacity-60">
+                          {getMealTimeRange("lunch")}
+                        </span>
+                      )}
                     </Button>
                     <Button
                       onClick={() => recordMeal.mutate("dinner")}
-                      disabled={hasMeal("dinner")}
+                      disabled={hasMeal("dinner") || !isMealTimeOpen("dinner")}
                       variant={hasMeal("dinner") ? "outline" : "default"}
                       size="lg"
-                      className="h-20 flex-col gap-2"
+                      className="h-24 flex-col gap-1"
                     >
                       {hasMeal("dinner") && <Check className="h-5 w-5" />}
                       <span className="text-base font-semibold">Dinner</span>
                       <span className="text-xs opacity-80">
-                        {hasMeal("dinner") ? "Recorded" : "Not recorded"}
+                        {hasMeal("dinner") 
+                          ? "Recorded" 
+                          : isMealTimeOpen("dinner") 
+                          ? "Available Now" 
+                          : `Closed`}
                       </span>
+                      {!isMealTimeOpen("dinner") && !hasMeal("dinner") && (
+                        <span className="text-xs opacity-60">
+                          {getMealTimeRange("dinner")}
+                        </span>
+                      )}
                     </Button>
                   </div>
                 )}

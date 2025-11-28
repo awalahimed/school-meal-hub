@@ -6,11 +6,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { signOut } from "@/lib/auth";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { Users, UserCog, BarChart3, LogOut, UtensilsCrossed } from "lucide-react";
+import { Users, UserCog, BarChart3, LogOut, UtensilsCrossed, Clock } from "lucide-react";
 import { StudentManagement } from "@/components/admin/StudentManagement";
 import { StaffManagement } from "@/components/admin/StaffManagement";
 import { MealReports } from "@/components/admin/MealReports";
 import { MenuManager } from "@/components/admin/MenuManager";
+import { MealScheduleManager } from "@/components/admin/MealScheduleManager";
 
 const AdminDashboard = () => {
   const { user } = useAuth();
@@ -42,7 +43,7 @@ const AdminDashboard = () => {
         {/* Main Content */}
         <main className="container mx-auto px-4 py-8">
           <Tabs defaultValue="students" className="space-y-6">
-            <TabsList className="grid w-full max-w-3xl grid-cols-4">
+            <TabsList className="grid w-full max-w-4xl grid-cols-5">
               <TabsTrigger value="students">
                 <Users className="mr-2 h-4 w-4" />
                 Students
@@ -58,6 +59,10 @@ const AdminDashboard = () => {
               <TabsTrigger value="menu">
                 <UtensilsCrossed className="mr-2 h-4 w-4" />
                 Menu
+              </TabsTrigger>
+              <TabsTrigger value="schedules">
+                <Clock className="mr-2 h-4 w-4" />
+                Schedules
               </TabsTrigger>
             </TabsList>
 
@@ -113,6 +118,20 @@ const AdminDashboard = () => {
                 </CardHeader>
                 <CardContent>
                   <MenuManager />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="schedules" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Meal Schedule Configuration</CardTitle>
+                  <CardDescription>
+                    Set serving times for breakfast, lunch, and dinner
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <MealScheduleManager />
                 </CardContent>
               </Card>
             </TabsContent>

@@ -79,6 +79,33 @@ export type Database = {
           },
         ]
       }
+      meal_schedules: {
+        Row: {
+          created_at: string | null
+          end_time: string
+          id: string
+          is_active: boolean | null
+          meal_type: string
+          start_time: string
+        }
+        Insert: {
+          created_at?: string | null
+          end_time: string
+          id?: string
+          is_active?: boolean | null
+          meal_type: string
+          start_time: string
+        }
+        Update: {
+          created_at?: string | null
+          end_time?: string
+          id?: string
+          is_active?: boolean | null
+          meal_type?: string
+          start_time?: string
+        }
+        Relationships: []
+      }
       meals: {
         Row: {
           created_at: string
