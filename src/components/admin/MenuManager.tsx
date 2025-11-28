@@ -5,263 +5,190 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { format } from "date-fns";
-import { CalendarIcon, Plus, Pencil, Trash2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Save, Coffee, UtensilsCrossed, Soup } from "lucide-react";
 
 type MealType = "breakfast" | "lunch" | "dinner";
+type DayOfWeek = "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday" | "Sunday";
+
+const DAYS: DayOfWeek[] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 export function MenuManager() {
   const queryClient = useQueryClient();
-  const [date, setDate] = useState<Date>();
-  const [mealType, setMealType] = useState<MealType>("breakfast");
-  const [description, setDescription] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedDay, setSelectedDay] = useState<DayOfWeek>("Monday");
 
-  // Fetch all menu items
-  const { data: menuItems, isLoading } = useQuery({
-    queryKey: ["menu-items"],
+  // Fetch all menu templates
+  const { data: menuTemplates, isLoading } = useQuery({
+    queryKey: ["menu-templates"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("weekly_menus")
+        .from("weekly_menu_templates")
         .select("*")
-        .order("date", { ascending: false })
-        .order("meal_type", { ascending: true });
+        .order("day_of_week");
 
       if (error) throw error;
       return data || [];
     },
   });
 
-  // Create/Update mutation
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      if (!date || !description.trim()) {
-        throw new Error("Please fill all fields");
-      }
-
-      const menuData = {
-        date: format(date, "yyyy-MM-dd"),
-        meal_type: mealType,
-        description: description.trim(),
-      };
-
-      if (editingId) {
-        const { error } = await supabase
-          .from("weekly_menus")
-          .update(menuData)
-          .eq("id", editingId);
-
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("weekly_menus").insert(menuData);
-
-        if (error) throw error;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["menu-items"] });
-      queryClient.invalidateQueries({ queryKey: ["weekly-menu"] });
-      queryClient.invalidateQueries({ queryKey: ["today-menu"] });
-      toast.success(editingId ? "Menu updated successfully" : "Menu added successfully");
-      resetForm();
-    },
-    onError: (error: Error) => {
-      toast.error(error.message);
-    },
-  });
-
-  // Delete mutation
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("weekly_menus").delete().eq("id", id);
+  // Update mutation
+  const updateMutation = useMutation({
+    mutationFn: async ({ 
+      day, 
+      mealType, 
+      mainDish, 
+      description 
+    }: { 
+      day: DayOfWeek; 
+      mealType: MealType; 
+      mainDish: string; 
+      description: string;
+    }) => {
+      const { error } = await supabase
+        .from("weekly_menu_templates")
+        .update({ 
+          main_dish: mainDish.trim(), 
+          description: description.trim() 
+        })
+        .eq("day_of_week", day)
+        .eq("meal_type", mealType);
 
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["menu-items"] });
-      queryClient.invalidateQueries({ queryKey: ["weekly-menu"] });
+      queryClient.invalidateQueries({ queryKey: ["menu-templates"] });
       queryClient.invalidateQueries({ queryKey: ["today-menu"] });
-      toast.success("Menu deleted successfully");
+      toast.success("Menu updated successfully");
     },
     onError: (error: Error) => {
       toast.error(error.message);
     },
   });
 
-  const resetForm = () => {
-    setDate(undefined);
-    setMealType("breakfast");
-    setDescription("");
-    setEditingId(null);
-  };
-
-  const handleEdit = (item: any) => {
-    setEditingId(item.id);
-    setDate(new Date(item.date));
-    setMealType(item.meal_type);
-    setDescription(item.description);
-  };
-
-  const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this menu item?")) {
-      deleteMutation.mutate(id);
+  const getMealIcon = (mealType: MealType) => {
+    switch (mealType) {
+      case "breakfast":
+        return <Coffee className="h-5 w-5" />;
+      case "lunch":
+        return <UtensilsCrossed className="h-5 w-5" />;
+      case "dinner":
+        return <Soup className="h-5 w-5" />;
     }
   };
 
+  const getDayMenus = (day: DayOfWeek) => {
+    return {
+      breakfast: menuTemplates?.find(t => t.day_of_week === day && t.meal_type === "breakfast"),
+      lunch: menuTemplates?.find(t => t.day_of_week === day && t.meal_type === "lunch"),
+      dinner: menuTemplates?.find(t => t.day_of_week === day && t.meal_type === "dinner"),
+    };
+  };
+
+  const MealForm = ({ day, mealType }: { day: DayOfWeek; mealType: MealType }) => {
+    const template = menuTemplates?.find(
+      t => t.day_of_week === day && t.meal_type === mealType
+    );
+    const [mainDish, setMainDish] = useState(template?.main_dish || "");
+    const [description, setDescription] = useState(template?.description || "");
+
+    // Update local state when template changes
+    useState(() => {
+      setMainDish(template?.main_dish || "");
+      setDescription(template?.description || "");
+    });
+
+    const handleSave = () => {
+      if (!mainDish.trim()) {
+        toast.error("Please enter a main dish");
+        return;
+      }
+      updateMutation.mutate({ day, mealType, mainDish, description });
+    };
+
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 capitalize">
+            {getMealIcon(mealType)}
+            {mealType}
+          </CardTitle>
+          <CardDescription>
+            Configure the {mealType} menu for {day}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor={`${day}-${mealType}-main`}>Main Dish</Label>
+            <Input
+              id={`${day}-${mealType}-main`}
+              placeholder="e.g., Scrambled Eggs, Rice & Chicken"
+              value={mainDish}
+              onChange={(e) => setMainDish(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor={`${day}-${mealType}-desc`}>Description (Optional)</Label>
+            <Textarea
+              id={`${day}-${mealType}-desc`}
+              placeholder="e.g., With bread and tea, Fresh fruit included"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={2}
+            />
+          </div>
+          <Button 
+            onClick={handleSave}
+            disabled={updateMutation.isPending}
+            size="sm"
+            className="w-full"
+          >
+            <Save className="mr-2 h-4 w-4" />
+            Save {mealType}
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <p className="text-muted-foreground">Loading menu templates...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Form */}
-      <div className="bg-muted/30 rounded-xl p-6 space-y-4">
-        <h3 className="font-semibold text-lg">
-          {editingId ? "Edit Menu Item" : "Add Menu Item"}
-        </h3>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          {/* Date Picker */}
-          <div className="space-y-2">
-            <Label>Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !date && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {date ? format(date, "PPP") : "Pick a date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar mode="single" selected={date} onSelect={setDate} initialFocus />
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          {/* Meal Type */}
-          <div className="space-y-2">
-            <Label>Meal Type</Label>
-            <Select value={mealType} onValueChange={(value) => setMealType(value as MealType)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="breakfast">Breakfast</SelectItem>
-                <SelectItem value="lunch">Lunch</SelectItem>
-                <SelectItem value="dinner">Dinner</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Description */}
-        <div className="space-y-2">
-          <Label>Menu Description</Label>
-          <Textarea
-            placeholder="e.g., Scrambled eggs, toast, orange juice, fresh fruit"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={3}
-          />
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-2">
-          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-            {editingId ? (
-              <>
-                <Pencil className="mr-2 h-4 w-4" />
-                Update Menu
-              </>
-            ) : (
-              <>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Menu
-              </>
-            )}
-          </Button>
-          {editingId && (
-            <Button variant="outline" onClick={resetForm}>
-              Cancel
-            </Button>
-          )}
-        </div>
+      <div className="rounded-lg bg-muted/50 p-4">
+        <p className="text-sm text-muted-foreground">
+          Configure the weekly menu template. These menus will repeat every week automatically. 
+          Students will see today's menu based on the current day of the week.
+        </p>
       </div>
 
-      {/* Menu Items List */}
-      <div className="rounded-xl border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Meal Type</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground">
-                  Loading...
-                </TableCell>
-              </TableRow>
-            ) : menuItems?.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground">
-                  No menu items found
-                </TableCell>
-              </TableRow>
-            ) : (
-              menuItems?.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell>{format(new Date(item.date), "MMM d, yyyy")}</TableCell>
-                  <TableCell className="capitalize">{item.meal_type}</TableCell>
-                  <TableCell className="max-w-md truncate">{item.description}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEdit(item)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(item.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <Tabs value={selectedDay} onValueChange={(v) => setSelectedDay(v as DayOfWeek)}>
+        <TabsList className="grid grid-cols-7 w-full">
+          {DAYS.map((day) => (
+            <TabsTrigger key={day} value={day} className="text-xs">
+              {day.slice(0, 3)}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        {DAYS.map((day) => (
+          <TabsContent key={day} value={day} className="space-y-4 mt-6">
+            <h3 className="text-xl font-semibold">{day}'s Menu</h3>
+            <div className="grid gap-4 md:grid-cols-3">
+              <MealForm day={day} mealType="breakfast" />
+              <MealForm day={day} mealType="lunch" />
+              <MealForm day={day} mealType="dinner" />
+            </div>
+          </TabsContent>
+        ))}
+      </Tabs>
     </div>
   );
 }

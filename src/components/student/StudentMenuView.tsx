@@ -6,13 +6,15 @@ import { Card } from "@/components/ui/card";
 import { UtensilsCrossed, Coffee, Soup } from "lucide-react";
 
 export const StudentMenuView = () => {
+  const currentDay = format(new Date(), "EEEE"); // Returns "Monday", "Tuesday", etc.
+
   const { data: menuItems, isLoading } = useQuery({
-    queryKey: ["weekly-menus", format(new Date(), "yyyy-MM-dd")],
+    queryKey: ["today-menu", currentDay],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("weekly_menus")
+        .from("weekly_menu_templates")
         .select("*")
-        .eq("date", format(new Date(), "yyyy-MM-dd"))
+        .eq("day_of_week", currentDay)
         .order("meal_type");
 
       if (error) throw error;
@@ -73,6 +75,26 @@ export const StudentMenuView = () => {
   const lunch = menuItems?.find((item) => item.meal_type === "lunch");
   const dinner = menuItems?.find((item) => item.meal_type === "dinner");
 
+  const renderMealCard = (meal: any, mealType: string) => {
+    if (!meal || meal.main_dish === "Not set") return null;
+
+    return (
+      <Card className="rounded-[32px] overflow-hidden shadow-xl border-0 relative h-48">
+        <div className={`absolute inset-0 bg-gradient-to-br ${getMealGradient(mealType)} flex flex-col justify-end p-6 text-white`}>
+          <div className="absolute top-6 right-6 text-6xl opacity-20">{getMealEmoji(mealType)}</div>
+          <div className="flex items-center gap-2 mb-2">
+            {getMealIcon(mealType)}
+            <span className="text-sm font-semibold uppercase tracking-wide">{mealType}</span>
+          </div>
+          <h3 className="text-2xl font-bold">{meal.main_dish}</h3>
+          {meal.description && meal.description !== "Menu not configured yet" && (
+            <p className="text-sm opacity-90 mt-1">{meal.description}</p>
+          )}
+        </div>
+      </Card>
+    );
+  };
+
   return (
     <div className="space-y-6 pb-24">
       <div className="text-center space-y-2">
@@ -81,42 +103,17 @@ export const StudentMenuView = () => {
       </div>
 
       <div className="space-y-4">
-        {breakfast && (
-          <Card className="rounded-[32px] overflow-hidden shadow-xl border-0 relative h-48">
-            <div className={`absolute inset-0 bg-gradient-to-br ${getMealGradient("breakfast")} flex flex-col justify-end p-6 text-white`}>
-              <div className="absolute top-6 right-6 text-6xl opacity-20">{getMealEmoji("breakfast")}</div>
-              <div className="flex items-center gap-2 mb-2">
-                {getMealIcon("breakfast")}
-                <span className="text-sm font-semibold uppercase tracking-wide">Breakfast</span>
-              </div>
-              <h3 className="text-2xl font-bold">{breakfast.description}</h3>
-            </div>
-          </Card>
-        )}
-
-        {lunch && (
-          <Card className="rounded-[32px] overflow-hidden shadow-xl border-0 relative h-48">
-            <div className={`absolute inset-0 bg-gradient-to-br ${getMealGradient("lunch")} flex flex-col justify-end p-6 text-white`}>
-              <div className="absolute top-6 right-6 text-6xl opacity-20">{getMealEmoji("lunch")}</div>
-              <div className="flex items-center gap-2 mb-2">
-                {getMealIcon("lunch")}
-                <span className="text-sm font-semibold uppercase tracking-wide">Lunch</span>
-              </div>
-              <h3 className="text-2xl font-bold">{lunch.description}</h3>
-            </div>
-          </Card>
-        )}
-
-        {dinner && (
-          <Card className="rounded-[32px] overflow-hidden shadow-xl border-0 relative h-48">
-            <div className={`absolute inset-0 bg-gradient-to-br ${getMealGradient("dinner")} flex flex-col justify-end p-6 text-white`}>
-              <div className="absolute top-6 right-6 text-6xl opacity-20">{getMealEmoji("dinner")}</div>
-              <div className="flex items-center gap-2 mb-2">
-                {getMealIcon("dinner")}
-                <span className="text-sm font-semibold uppercase tracking-wide">Dinner</span>
-              </div>
-              <h3 className="text-2xl font-bold">{dinner.description}</h3>
-            </div>
+        {renderMealCard(breakfast, "breakfast")}
+        {renderMealCard(lunch, "lunch")}
+        {renderMealCard(dinner, "dinner")}
+        
+        {(!breakfast || breakfast.main_dish === "Not set") && 
+         (!lunch || lunch.main_dish === "Not set") && 
+         (!dinner || dinner.main_dish === "Not set") && (
+          <Card className="rounded-[32px] p-8 text-center">
+            <p className="text-muted-foreground">
+              No menu configured for {currentDay} yet. Please check back later.
+            </p>
           </Card>
         )}
       </div>
