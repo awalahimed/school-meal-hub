@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -93,13 +93,16 @@ export function MenuManager() {
     const [mainDish, setMainDish] = useState(template?.main_dish || "");
     const [description, setDescription] = useState(template?.description || "");
 
-    // Update local state when template changes
-    useState(() => {
+    // Update local state when template or day changes
+    useEffect(() => {
       setMainDish(template?.main_dish || "");
       setDescription(template?.description || "");
-    });
+    }, [template?.main_dish, template?.description, day, mealType]);
 
-    const handleSave = () => {
+    const handleSave = (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
       if (!mainDish.trim()) {
         toast.error("Please enter a main dish");
         return;
@@ -143,6 +146,7 @@ export function MenuManager() {
             disabled={updateMutation.isPending}
             size="sm"
             className="w-full"
+            type="button"
           >
             <Save className="mr-2 h-4 w-4" />
             Save {mealType}
@@ -182,9 +186,9 @@ export function MenuManager() {
           <TabsContent key={day} value={day} className="space-y-4 mt-6">
             <h3 className="text-xl font-semibold">{day}'s Menu</h3>
             <div className="grid gap-4 md:grid-cols-3">
-              <MealForm day={day} mealType="breakfast" />
-              <MealForm day={day} mealType="lunch" />
-              <MealForm day={day} mealType="dinner" />
+              <MealForm key={`${day}-breakfast`} day={day} mealType="breakfast" />
+              <MealForm key={`${day}-lunch`} day={day} mealType="lunch" />
+              <MealForm key={`${day}-dinner`} day={day} mealType="dinner" />
             </div>
           </TabsContent>
         ))}
