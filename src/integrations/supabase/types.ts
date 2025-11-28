@@ -261,6 +261,36 @@ export type Database = {
         }
         Relationships: []
       }
+      weekly_menu_templates: {
+        Row: {
+          created_at: string | null
+          day_of_week: string
+          description: string | null
+          id: string
+          main_dish: string
+          meal_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          day_of_week: string
+          description?: string | null
+          id?: string
+          main_dish: string
+          meal_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          day_of_week?: string
+          description?: string | null
+          id?: string
+          main_dish?: string
+          meal_type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       weekly_menus: {
         Row: {
           created_at: string
