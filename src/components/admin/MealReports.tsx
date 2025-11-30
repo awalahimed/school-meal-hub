@@ -99,6 +99,38 @@ export const MealReports = () => {
     },
   });
 
+  // Download meal records as CSV
+  const downloadMealRecords = () => {
+    if (!recentMeals || recentMeals.length === 0) {
+      toast.error("No meal records to download");
+      return;
+    }
+
+    const csvHeaders = "Student ID,Student Name,Meal Type,Date,Time\n";
+    const csvRows = recentMeals.map((meal) => {
+      const studentName = meal.student?.full_name || "Unknown";
+      const studentId = meal.student?.student_id || "Unknown";
+      const mealType = meal.meal_type.charAt(0).toUpperCase() + meal.meal_type.slice(1);
+      const date = format(new Date(meal.meal_date), "MMM dd, yyyy");
+      const time = format(new Date(meal.created_at), "h:mm a");
+      return `"${studentId}","${studentName}","${mealType}","${date}","${time}"`;
+    }).join("\n");
+
+    const csvContent = csvHeaders + csvRows;
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute("href", url);
+    link.setAttribute("download", `meal-records-${format(new Date(), "yyyy-MM-dd")}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success("Meal records downloaded successfully");
+  };
+
   // Download feedback as CSV
   const downloadFeedback = () => {
     if (!recentComments || recentComments.length === 0) {
@@ -303,7 +335,18 @@ export const MealReports = () => {
       {/* Recent Meals Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Meal Records (Last 24 Hours)</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Recent Meal Records (Last 24 Hours)</CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={downloadMealRecords}
+              disabled={!recentMeals || recentMeals.length === 0}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
