@@ -266,9 +266,11 @@ export const StudentManagement = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["students"] });
       toast.success("Student deleted successfully");
+      setDeleteId(null);
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to delete student");
+      setDeleteId(null);
     },
   });
 
@@ -515,17 +517,17 @@ export const StudentManagement = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteStudent.isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (deleteId) {
+                if (deleteId && !deleteStudent.isPending) {
                   deleteStudent.mutate(deleteId);
-                  setDeleteId(null);
                 }
               }}
+              disabled={deleteStudent.isPending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              {deleteStudent.isPending ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -595,6 +597,7 @@ export const StudentManagement = () => {
                         variant="outline"
                         size="icon"
                         onClick={() => setDeleteId(student.id)}
+                        disabled={deleteStudent.isPending && deleteId === student.id}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
