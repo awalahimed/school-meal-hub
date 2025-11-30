@@ -8,32 +8,63 @@ export const useUnreadAnnouncements = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: unreadCount = 0 } = useQuery({
-    queryKey: ["unread-announcements", user?.id],
+  // Get student data
+  const { data: student } = useQuery({
+    queryKey: ["student-data", user?.id],
     queryFn: async () => {
-      if (!user?.id) return 0;
-
-      // Get student's last check time
-      const { data: student } = await supabase
+      if (!user?.id) return null;
+      const { data, error } = await supabase
         .from("students")
-        .select("last_checked_announcements")
+        .select("id, last_checked_announcements")
         .eq("user_id", user.id)
         .single();
 
-      if (!student) return 0;
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
 
-      // Count announcements created after last check
-      const { count } = await supabase
+  // Get dismissed announcements
+  const { data: dismissals } = useQuery({
+    queryKey: ["dismissed-announcements", student?.id],
+    queryFn: async () => {
+      if (!student?.id) return [];
+      const { data, error } = await supabase
+        .from("student_announcement_dismissals")
+        .select("announcement_id")
+        .eq("student_id", student.id);
+
+      if (error) throw error;
+      return data.map((d) => d.announcement_id);
+    },
+    enabled: !!student?.id,
+  });
+
+  const { data: unreadCount = 0 } = useQuery({
+    queryKey: ["unread-announcements", user?.id, dismissals],
+    queryFn: async () => {
+      if (!user?.id || !student) return 0;
+
+      // Get all announcements created after last check
+      const { data: announcements } = await supabase
         .from("announcements")
-        .select("*", { count: "exact", head: true })
+        .select("id")
         .gt(
           "created_at",
           student.last_checked_announcements || new Date(0).toISOString()
         );
 
-      return count || 0;
+      if (!announcements) return 0;
+
+      // Filter out dismissed announcements
+      const unreadAnnouncementIds = announcements
+        .map((a) => a.id)
+        .filter((id) => !dismissals?.includes(id));
+
+      return unreadAnnouncementIds.length;
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && !!student && !!dismissals,
   });
 
   const markAsRead = useMutation({
