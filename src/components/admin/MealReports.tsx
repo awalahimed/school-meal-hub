@@ -43,9 +43,13 @@ export const MealReports = () => {
   const { data: recentMeals } = useQuery({
     queryKey: ["recent-meals"],
     queryFn: async () => {
+      const oneDayAgo = new Date();
+      oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+      
       const { data, error } = await supabase
         .from("meals")
         .select("*, student:students(full_name, student_id)")
+        .gte("created_at", oneDayAgo.toISOString())
         .order("created_at", { ascending: false })
         .limit(10);
 
@@ -299,7 +303,7 @@ export const MealReports = () => {
       {/* Recent Meals Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Meal Records</CardTitle>
+          <CardTitle>Recent Meal Records (Last 24 Hours)</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
