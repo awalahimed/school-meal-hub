@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Utensils, Star, MessageSquare, Trash2 } from "lucide-react";
+import { BarChart3, Utensils, Star, MessageSquare, Trash2, Download } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -94,6 +94,37 @@ export const MealReports = () => {
       return data;
     },
   });
+
+  // Download feedback as CSV
+  const downloadFeedback = () => {
+    if (!recentComments || recentComments.length === 0) {
+      toast.error("No feedback to download");
+      return;
+    }
+
+    const csvHeaders = "Student Name,Student ID,Rating,Comment,Date\n";
+    const csvRows = recentComments.map((rating) => {
+      const studentName = rating.student?.full_name || "Unknown";
+      const studentId = rating.student?.student_id || "Unknown";
+      const comment = (rating.comment || "").replace(/"/g, '""'); // Escape quotes
+      const date = format(new Date(rating.created_at), "MMM dd, yyyy 'at' h:mm a");
+      return `"${studentName}","${studentId}",${rating.rating},"${comment}","${date}"`;
+    }).join("\n");
+
+    const csvContent = csvHeaders + csvRows;
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute("href", url);
+    link.setAttribute("download", `student-feedback-${format(new Date(), "yyyy-MM-dd")}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success("Feedback downloaded successfully");
+  };
 
   // Delete feedback mutation
   const deleteFeedback = useMutation({
@@ -200,6 +231,15 @@ export const MealReports = () => {
               <MessageSquare className="h-5 w-5 text-primary" />
               <CardTitle>Recent Student Feedback (Last 2 Days)</CardTitle>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={downloadFeedback}
+              disabled={!recentComments || recentComments.length === 0}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
