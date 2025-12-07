@@ -1,3 +1,4 @@
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -10,12 +11,22 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Utensils, Star, MessageSquare, Trash2, Download } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { BarChart3, Utensils, Star, MessageSquare, Trash2, Download, Heart, TrendingUp } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
+type SortOption = "newest" | "most-liked";
+
 export const MealReports = () => {
   const queryClient = useQueryClient();
+  const [sortBy, setSortBy] = useState<SortOption>("newest");
   
   const { data: mealStats } = useQuery({
     queryKey: ["meal-stats"],
@@ -80,7 +91,7 @@ export const MealReports = () => {
     },
   });
 
-  // Get recent comments (last 2 days only)
+  // Get recent comments (last 2 days only) with likes
   const { data: recentComments } = useQuery({
     queryKey: ["recent-comments"],
     queryFn: async () => {
@@ -97,6 +108,40 @@ export const MealReports = () => {
       return data;
     },
   });
+
+  // Fetch likes counts for all ratings
+  const { data: likesData } = useQuery({
+    queryKey: ["feedback-likes-counts"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("feedback_likes")
+        .select("rating_id");
+
+      if (error) throw error;
+      
+      // Count likes per rating
+      const likeCounts: Record<string, number> = {};
+      data.forEach((like) => {
+        likeCounts[like.rating_id] = (likeCounts[like.rating_id] || 0) + 1;
+      });
+      return likeCounts;
+    },
+  });
+
+  // Sort comments based on selected option
+  const sortedComments = useMemo(() => {
+    if (!recentComments) return [];
+    
+    const commentsWithLikes = recentComments.map((comment) => ({
+      ...comment,
+      likeCount: likesData?.[comment.id] || 0,
+    }));
+
+    if (sortBy === "most-liked") {
+      return [...commentsWithLikes].sort((a, b) => b.likeCount - a.likeCount);
+    }
+    return commentsWithLikes;
+  }, [recentComments, likesData, sortBy]);
 
   // Download meal records as CSV
   const downloadMealRecords = () => {
@@ -261,79 +306,114 @@ export const MealReports = () => {
       {/* Recent Comments */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-2">
               <MessageSquare className="h-5 w-5 text-primary" />
               <CardTitle>Recent Student Feedback (Last 2 Days)</CardTitle>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={downloadFeedback}
-              disabled={!recentComments || recentComments.length === 0}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Download
-            </Button>
+            <div className="flex items-center gap-2">
+              <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Newest First</SelectItem>
+                  <SelectItem value="most-liked">Most Supported</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={downloadFeedback}
+                disabled={!recentComments || recentComments.length === 0}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
-          {recentComments && recentComments.length > 0 ? (
+          {sortedComments && sortedComments.length > 0 ? (
             <div className="space-y-4">
-              {recentComments.map((rating) => (
-                <div
-                  key={rating.id}
-                  className="border-l-2 border-primary/30 pl-4 py-2"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="space-y-2 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">
-                          {rating.student?.full_name}
-                        </span>
-                        <span className="text-xs text-muted-foreground font-mono">
-                          {rating.student?.student_id}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Star
-                            key={star}
-                            className={`h-3 w-3 ${
-                              star <= rating.rating
-                                ? "fill-warning text-warning"
-                                : "text-muted-foreground"
-                            }`}
+              {sortedComments.map((rating) => {
+                const isTrending = rating.likeCount > 10;
+                return (
+                  <div
+                    key={rating.id}
+                    className={`border-l-2 pl-4 py-2 rounded-r-lg transition-colors ${
+                      isTrending 
+                        ? "border-destructive bg-destructive/10" 
+                        : "border-primary/30"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-2 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-sm">
+                            {rating.student?.full_name}
+                          </span>
+                          <span className="text-xs text-muted-foreground font-mono">
+                            {rating.student?.student_id}
+                          </span>
+                          {isTrending && (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive bg-destructive/20 px-2 py-0.5 rounded-full">
+                              <TrendingUp className="h-3 w-3" />
+                              Trending Issue
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              className={`h-3 w-3 ${
+                                star <= rating.rating
+                                  ? "fill-warning text-warning"
+                                  : "text-muted-foreground"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        {rating.comment && (
+                          <div className="flex items-start gap-2">
+                            <p className="text-sm italic flex-1">{rating.comment}</p>
+                          </div>
+                        )}
+                        {/* Like count display */}
+                        <div className="flex items-center gap-1 text-sm">
+                          <Heart className={`h-4 w-4 ${rating.likeCount > 0 ? "fill-destructive text-destructive" : "text-muted-foreground"}`} />
+                          <span className={rating.likeCount > 0 ? "text-destructive font-medium" : "text-muted-foreground"}>
+                            {rating.likeCount > 0 
+                              ? `${rating.likeCount} student${rating.likeCount > 1 ? "s" : ""} agreed`
+                              : "No supporters yet"}
+                          </span>
+                        </div>
+                        {rating.image_url && (
+                          <img
+                            src={rating.image_url}
+                            alt="Student meal photo"
+                            className="rounded-lg max-w-xs object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => window.open(rating.image_url, "_blank")}
                           />
-                        ))}
+                        )}
+                        <span className="text-xs text-muted-foreground block">
+                          {format(new Date(rating.created_at), "MMM dd, yyyy 'at' h:mm a")}
+                        </span>
                       </div>
-                      {rating.comment && (
-                        <p className="text-sm italic">{rating.comment}</p>
-                      )}
-                      {rating.image_url && (
-                        <img
-                          src={rating.image_url}
-                          alt="Student meal photo"
-                          className="rounded-lg max-w-xs object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                          onClick={() => window.open(rating.image_url, "_blank")}
-                        />
-                      )}
-                      <span className="text-xs text-muted-foreground block">
-                        {format(new Date(rating.created_at), "MMM dd, yyyy 'at' h:mm a")}
-                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteFeedback.mutate(rating.id)}
+                        disabled={deleteFeedback.isPending}
+                        className="shrink-0"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => deleteFeedback.mutate(rating.id)}
-                      disabled={deleteFeedback.isPending}
-                      className="shrink-0"
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">No recent feedback (last 2 days)</p>
