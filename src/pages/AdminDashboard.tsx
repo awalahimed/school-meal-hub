@@ -13,6 +13,7 @@ import { StaffManagement } from "@/components/admin/StaffManagement";
 import { MealReports } from "@/components/admin/MealReports";
 import { MenuManager } from "@/components/admin/MenuManager";
 import { MealScheduleManager } from "@/components/admin/MealScheduleManager";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -92,7 +93,9 @@ const AdminDashboard = () => {
               </div>
             </div>
             
-            <DropdownMenu>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                   <Avatar className="h-10 w-10">
@@ -123,6 +126,7 @@ const AdminDashboard = () => {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            </div>
           </div>
         </header>
 
