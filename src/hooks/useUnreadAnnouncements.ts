@@ -4,6 +4,19 @@ import { useAuth } from "./useAuth";
 import { useEffect } from "react";
 import { toast } from "sonner";
 
+// Get notification preferences from localStorage
+const getNotificationPreferences = () => {
+  try {
+    const stored = localStorage.getItem("notification-preferences");
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch {
+    // ignore
+  }
+  return { soundEnabled: true, toastEnabled: true };
+};
+
 export const useUnreadAnnouncements = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -95,21 +108,28 @@ export const useUnreadAnnouncements = () => {
 
     // Create notification sound
     const playNotificationSound = () => {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
+      const prefs = getNotificationPreferences();
+      if (!prefs.soundEnabled) return;
 
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
+      try {
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
 
-      oscillator.frequency.value = 800;
-      oscillator.type = 'sine';
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
 
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+        oscillator.frequency.value = 800;
+        oscillator.type = 'sine';
 
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.5);
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.5);
+      } catch (error) {
+        console.log("Could not play notification sound:", error);
+      }
     };
 
     const channel = supabase
@@ -124,22 +144,21 @@ export const useUnreadAnnouncements = () => {
         (payload) => {
           console.log("New announcement received:", payload);
           
-          // Play notification sound
-          try {
-            playNotificationSound();
-          } catch (error) {
-            console.log("Could not play notification sound:", error);
-          }
+          // Play notification sound (respects preferences internally)
+          playNotificationSound();
           
-          // Show toast notification with dismiss action
-          toast.info("New Announcement", {
-            description: payload.new.title,
-            duration: 5000,
-            action: {
-              label: "Dismiss",
-              onClick: () => {},
-            },
-          });
+          // Show toast notification if enabled
+          const prefs = getNotificationPreferences();
+          if (prefs.toastEnabled) {
+            toast.info("New Announcement", {
+              description: payload.new.title,
+              duration: 5000,
+              action: {
+                label: "Dismiss",
+                onClick: () => {},
+              },
+            });
+          }
 
           // Invalidate queries to update unread count
           queryClient.invalidateQueries({ queryKey: ["unread-announcements"] });

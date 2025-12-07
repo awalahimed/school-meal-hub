@@ -4,6 +4,19 @@ import { useAuth } from "@/hooks/useAuth";
 import { useEffect } from "react";
 import { toast } from "sonner";
 
+// Get notification preferences from localStorage
+const getNotificationPreferences = () => {
+  try {
+    const stored = localStorage.getItem("notification-preferences");
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch {
+    // ignore
+  }
+  return { soundEnabled: true, toastEnabled: true };
+};
+
 export const useUnreadVoice = (isViewingVoice: boolean = false) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -85,6 +98,9 @@ export const useUnreadVoice = (isViewingVoice: boolean = false) => {
 
     // Create notification sound
     const playNotificationSound = () => {
+      const prefs = getNotificationPreferences();
+      if (!prefs.soundEnabled) return;
+
       try {
         const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
         const oscillator = audioContext.createOscillator();
@@ -135,16 +151,19 @@ export const useUnreadVoice = (isViewingVoice: boolean = false) => {
                   .eq("id", student.id);
               }
             } else {
-              // Play notification sound only if not viewing
+              // Play notification sound (respects preferences internally)
               playNotificationSound();
 
-              // Show toast notification
-              toast.info("New Student Voice", {
-                description: payload.new.comment 
-                  ? payload.new.comment.substring(0, 50) + (payload.new.comment.length > 50 ? "..." : "")
-                  : "A student shared feedback about a meal",
-                duration: 5000,
-              });
+              // Show toast notification if enabled
+              const prefs = getNotificationPreferences();
+              if (prefs.toastEnabled) {
+                toast.info("New Student Voice", {
+                  description: payload.new.comment 
+                    ? payload.new.comment.substring(0, 50) + (payload.new.comment.length > 50 ? "..." : "")
+                    : "A student shared feedback about a meal",
+                  duration: 5000,
+                });
+              }
             }
 
             // Invalidate queries to update unread count and feed
