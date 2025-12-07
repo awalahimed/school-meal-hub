@@ -48,17 +48,26 @@ export const useUnreadVoice = () => {
   // Mark voice as read by updating last_checked_voice
   const { mutate: markAsRead } = useMutation({
     mutationFn: async () => {
-      if (!studentData?.id) return;
+      if (!studentData?.id) {
+        console.log("No student data, cannot mark voice as read");
+        return;
+      }
+      const now = new Date().toISOString();
+      console.log("Marking voice as read for student:", studentData.id, "at:", now);
       const { error } = await supabase
         .from("students")
-        .update({ last_checked_voice: new Date().toISOString() })
+        .update({ last_checked_voice: now })
         .eq("id", studentData.id);
 
       if (error) throw error;
     },
     onSuccess: () => {
+      console.log("Voice marked as read, invalidating queries");
       queryClient.invalidateQueries({ queryKey: ["unread-voice"] });
       queryClient.invalidateQueries({ queryKey: ["student-voice-check"] });
+    },
+    onError: (error) => {
+      console.error("Failed to mark voice as read:", error);
     },
   });
 
